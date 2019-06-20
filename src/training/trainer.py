@@ -79,7 +79,9 @@ class Trainer():
 
         self.model = model
         optimiser = Optimiser(algorithm="adadelta", learning_rate=1.0).optimiser
-        self.optimisation = optimiser.minimize(self.model.loss)
+        gradients = optimiser.compute_gradients(self.model.loss)
+        capped = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gradients]
+        self.optimisation = optimiser.apply_gradients(capped)
 
 
     def initialise_tensorflow_session_and_variables(self, embeddings=None):

@@ -104,9 +104,13 @@ class AttentionBLSTM():
 
     def define_loss(self):
 
+        with tf.variable_scope("l2_loss"):
+            trainable_variables = tf.trainable_variables()
+            self.l2_loss = tf.add_n([tf.nn.l2_loss(variable) for variable in trainable_variables if "bias" not in variable.name]) * 0.001
+
         with tf.variable_scope("loss"):
             self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.y_train)
-            self.loss = tf.reduce_mean(self.losses)
+            self.loss = tf.reduce_mean(self.losses + self.l2_loss)
 
 
     def define_accuracy(self):
