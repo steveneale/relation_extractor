@@ -1,5 +1,7 @@
 # relation_extractor
 
+![version](https://img.shields.io/badge/version-0.1-important.svg)
+
 *relation_extractor* is a program for training relation extraction models, written in Python and with models implemented using [TensorFlow](https://www.tensorflow.org). The model architecture is a bi-directional LSTM with attention, as outlined in the paper by Zhou et al. [[1](#paper1)].
 
 The implementation here is in part an object-oriented reimagining of [this](https://github.com/SeoSangwoo/Attention-Based-BiLSTM-relation-extraction) version from [SeoSangwoo](https://github.com/SeoSangwoo), with some additional tweaks.
