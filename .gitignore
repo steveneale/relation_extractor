@@ -3,10 +3,11 @@ __pycache__
 .DS_Store
 
 # virtualenv folders
-bin/
-include/
-lib/
-share/
+.venv/
+
+# IDEs
+.idea/
+.vscode/
 
 # NLTK data
 resources/nltk_data
@@ -15,4 +16,4 @@ resources/nltk_data
 resources/embeddings
 
 # Output
-output/*
+output/
