@@ -13,7 +13,6 @@ import os
 
 
 def load_from_file(file_path, lines=True, stripped=False):
-
     with open(file_path, "r", encoding="utf-8") as loaded_file:
         if lines is True:
             return [line.strip() for line in loaded_file.read().splitlines()] \
