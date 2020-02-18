@@ -7,15 +7,20 @@
 """
 
 import sys
+import os
 import argparse
 
 import tensorflow as tf
+
+import nltk
 
 import src.train as training
 
 
 def train(arguments):
 
+	root_path = os.path.dirname(os.path.abspath(__file__))
+	nltk.data.path.append("{}/resources/nltk_data".format(root_path))
 	training.train_new_model(arguments)
 
 
