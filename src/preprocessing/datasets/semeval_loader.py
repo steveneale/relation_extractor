@@ -15,6 +15,8 @@ import tensorflow as tf
 
 from tflearn.data_utils import VocabularyProcessor
 
+from nltk.corpus import stopwords
+
 from resources.labels import semeval_classes
 from src.io.utils import load_from_file
 from src.preprocessing import Tokeniser
@@ -64,10 +66,16 @@ class SemevalLoader():
 
     def tokenise_sentence_and_update_maximum_length(self, sentence):
 
-        tokens = Tokeniser().tokenise(sentence)
+        tokens = self.remove_stopwords(Tokeniser().tokenise(sentence))
         if len(tokens) > self.maximum_sentence_length:
             self.maximum_sentence_length = len(tokens)
         return " ".join(tokens)
+
+
+    def remove_stopwords(self, tokens):
+
+        stop_words = set(stopwords.words("english"))
+        return [token for token in tokens if token not in stop_words]
 
 
     def process_vocabulary(self, vocab_processor=None):

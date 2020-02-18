@@ -10,25 +10,16 @@ import sys
 import os
 import argparse
 
-<<<<<<< HEAD
-import tensorflow as tf
-
 import nltk
 
-=======
->>>>>>> 80e903f6cad143b39d4666d5dbd8ed57ddc52080
 import src.train as training
 
 
 def train(arguments):
-<<<<<<< HEAD
 
-	root_path = os.path.dirname(os.path.abspath(__file__))
-	nltk.data.path.append("{}/resources/nltk_data".format(root_path))
-	training.train_new_model(arguments)
-=======
+    root_path = os.path.dirname(os.path.abspath(__file__))
+    nltk.data.path.append("{}/resources/nltk_data".format(root_path))
     training.train_new_model(arguments)
->>>>>>> 80e903f6cad143b39d4666d5dbd8ed57ddc52080
 
 
 def parse_training_arguments(args):
