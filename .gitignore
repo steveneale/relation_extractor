@@ -1,13 +1,17 @@
-# .gitignore file for relation_extractor
-__pycache__
-.DS_Store
+# .gitignore file for 'relation_extractor'
 
-# virtualenv folders
+# Python files (__pycache__, PyPi etc.)
+__pycache__
+
+# Virtual environments
 .venv/
 
 # IDEs
 .idea/
 .vscode/
+
+# OS files
+.DS_Store
 
 # NLTK data
 resources/nltk_data

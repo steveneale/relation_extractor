@@ -11,7 +11,7 @@ Train a bi-directional LSTM model for relation extraction
 
 import tensorflow as tf
 
-from src.models import AttentionBLSTM
+from src.models.seq_labelling.recurrent import AttentionBLSTM
 from src.preprocessing import DatasetLoader
 from src.training import Trainer
 
@@ -54,7 +54,7 @@ def get_model_with_parameters(maximum_sequence_length, number_of_classes, vocabu
                            hidden_dimension=100,
                            vocabulary_size=vocabulary_size,
                            embedding_size=embedding_size)
-    model.construct()
+    model.construct_model()
     return model
 
 
