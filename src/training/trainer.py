@@ -11,14 +11,51 @@ Class for training relation extraction models
 
 import math
 
+from typing import Tuple
+
 import numpy as np
 
 import tensorflow as tf
+from tensorflow.data import Dataset as TFDataset
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.optimizers import Optimizer, Adadelta
 
 from sklearn.metrics import f1_score
 
+from src.preprocessing import DatasetLoader
 from src.training import Optimiser
 from src.io.utils import create_directory
+
+
+class NewTrainer(object):
+
+    def __init__(self, seed=None):
+        self.seed = seed
+
+    def train(self,
+              train_path_and_dataset: Tuple[str, str],
+              model_config=None,
+              batch_size: int = None,
+              model_name: str = None):
+        train_path, train_dataset = train_path_and_dataset
+        _ = self._load_dataset(train_path, train_dataset, batch_size=batch_size)
+        loss = self._define_loss()
+        optimiser = self._define_optimiser()
+
+    def _load_dataset(self, data_path: str, dataset: str, shuffle: bool = True, batch_size: int = None) -> TFDataset:
+        loaded_data = DatasetLoader(dataset=dataset).load(data_path)
+        dataset = TFDataset.from_tensor_slices(loaded_data.x, loaded_data.y)
+        if shuffle:
+            dataset.shuffle(len(loaded_data.x), seed=self.seed)
+        if batch_size:
+            dataset.batch(batch_size)
+        return dataset
+
+    def _define_loss(self) -> SparseCategoricalCrossentropy:
+        return SparseCategoricalCrossentropy(from_logits=True)
+
+    def _define_optimiser(self) -> Optimizer:
+        return Adadelta(learning_rate=1.0)
 
 
 class Trainer():
@@ -155,6 +192,3 @@ class Trainer():
             saved_checkpoint_path = self.saver.save(self.session, self.checkpoint_directory + "/model-{:.3g}-f1".format(self.best_f1))
             print("Saved model checkpoint to {}".format(saved_checkpoint_path))
         return loss, accuracy, f1
-
-
-
