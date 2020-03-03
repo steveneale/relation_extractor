@@ -16,9 +16,11 @@ from typing import Tuple
 import numpy as np
 
 import tensorflow as tf
+from tensorflow.keras import Model
 from tensorflow.data import Dataset as TFDataset
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from tensorflow.keras.optimizers import Optimizer, Adadelta
+from tensorflow.keras.metrics import Mean, SparseCategoricalAccuracy
 
 from sklearn.metrics import f1_score
 
@@ -34,13 +36,60 @@ class NewTrainer(object):
 
     def train(self,
               train_path_and_dataset: Tuple[str, str],
-              model_config=None,
+              test_path_and_dataset: Tuple[str, str],
+              model: Model,
               batch_size: int = None,
+              epochs: int = 100,
               model_name: str = None):
         train_path, train_dataset = train_path_and_dataset
-        _ = self._load_dataset(train_path, train_dataset, batch_size=batch_size)
-        loss = self._define_loss()
+        training_data = self._load_dataset(train_path, train_dataset, batch_size=batch_size)
+        loss_function = self._define_loss()
         optimiser = self._define_optimiser()
+
+        train_loss = Mean(name='train_loss')
+        train_accuracy = SparseCategoricalAccuracy(name='train_accuracy')
+
+        test_loss = Mean(name='test_loss')
+        test_accuracy = SparseCategoricalAccuracy(name='test_accuracy')
+
+        @tf.function
+        def train_step(features, labels):
+            with tf.GradientTape() as tape:
+                predictions = model(features, training=True)
+                tr_loss = loss_function(labels, predictions)
+
+            gradients = tape.gradient(tr_loss, model.trainable_variables)
+            optimiser.apply_gradients(zip(gradients, model.trainable_variables))
+
+            train_loss(tr_loss)
+            train_accuracy(labels, predictions)
+
+        @tf.function
+        def test_step(features, labels):
+            predictions = model(features, training=False)
+            te_loss = loss_function(labels, predictions)
+
+            test_loss(te_loss)
+            test_accuracy(labels, predictions)
+
+        for epoch in range(epochs):
+            train_loss.reset_states()
+            train_accuracy.reset_states()
+            test_loss.reset_states()
+            test_accuracy.reset_states()
+
+            for features, labels in training_data:
+                train_step(features, labels)
+
+            for test_features, test_labels in [(None, None), (None, None), (None, None)]:
+                test_step(test_features, test_labels)
+
+            template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
+            print(template.format(epoch+1,
+                  train_loss.result(),
+                  train_accuracy.result()*100,
+                  test_loss.result(),
+                  test_accuracy.result()*100))
 
     def _load_dataset(self, data_path: str, dataset: str, shuffle: bool = True, batch_size: int = None) -> TFDataset:
         loaded_data = DatasetLoader(dataset=dataset).load(data_path)
