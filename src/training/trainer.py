@@ -33,6 +33,16 @@ class NewTrainer(object):
 
     def __init__(self, seed=None):
         self.seed = seed
+        # Training values (loss / accuracy)
+        self.train_loss = None
+        self.train_accuracy = None
+        self.test_loss = None
+        self.test_accuracy = None
+        # Output directories / saver
+        self.output_directory = None
+        self.checkpoint_directory = None
+        # Best F1-score so far
+        self.best_f1 = 0.0
 
     def train(self,
               train_path_and_dataset: Tuple[str, str],
@@ -41,55 +51,44 @@ class NewTrainer(object):
               batch_size: int = None,
               epochs: int = 100,
               model_name: str = None):
+        """ Train a relation extraction model
+
+        """
+        self._setup_output_directories_and_saver(model_name)
+
         train_path, train_dataset = train_path_and_dataset
         training_data = self._load_dataset(train_path, train_dataset, batch_size=batch_size)
-        loss_function = self._define_loss()
+
+        test_path, test_dataset = test_path_and_dataset
+        test_data = self.load_dataset(test_path, test_dataset)
+
+        loss_function = self._define_loss_function()
         optimiser = self._define_optimiser()
 
-        train_loss = Mean(name='train_loss')
-        train_accuracy = SparseCategoricalAccuracy(name='train_accuracy')
-
-        test_loss = Mean(name='test_loss')
-        test_accuracy = SparseCategoricalAccuracy(name='test_accuracy')
-
-        @tf.function
-        def train_step(features, labels):
-            with tf.GradientTape() as tape:
-                predictions = model(features, training=True)
-                tr_loss = loss_function(labels, predictions)
-
-            gradients = tape.gradient(tr_loss, model.trainable_variables)
-            optimiser.apply_gradients(zip(gradients, model.trainable_variables))
-
-            train_loss(tr_loss)
-            train_accuracy(labels, predictions)
-
-        @tf.function
-        def test_step(features, labels):
-            predictions = model(features, training=False)
-            te_loss = loss_function(labels, predictions)
-
-            test_loss(te_loss)
-            test_accuracy(labels, predictions)
+        self._define_train_and_test_loss_objects_and_accuracies()
 
         for epoch in range(epochs):
-            train_loss.reset_states()
-            train_accuracy.reset_states()
-            test_loss.reset_states()
-            test_accuracy.reset_states()
+            self._reset_loss_objects_and_accuracies()
 
             for features, labels in training_data:
-                train_step(features, labels)
+                self._train_step(features, labels, model, loss_function, optimiser)
 
-            for test_features, test_labels in [(None, None), (None, None), (None, None)]:
-                test_step(test_features, test_labels)
+            for test_features, test_labels in test_data:
+                f1 = self._test_model_and_return_f1(test_features, test_labels)
+                if f1 > self.best_f1:
+                    self.best_f1 = f1
+                    model.save_weights("{}/model-{:.3g}-f1".format(self.checkpoint_directory, self.best_f1))
 
             template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
             print(template.format(epoch+1,
-                  train_loss.result(),
-                  train_accuracy.result()*100,
-                  test_loss.result(),
-                  test_accuracy.result()*100))
+                  self.train_loss.result(),
+                  self.train_accuracy.result()*100,
+                  self.test_loss.result(),
+                  self.test_accuracy.result()*100))
+
+    def _setup_output_directories_and_saver(self, model_name):
+        self.output_directory = create_directory("output/{}".format(model_name))
+        self.checkpoint_directory = create_directory("{}/checkpoints".format(self.output_directory))
 
     def _load_dataset(self, data_path: str, dataset: str, shuffle: bool = True, batch_size: int = None) -> TFDataset:
         loaded_data = DatasetLoader(dataset=dataset).load(data_path)
@@ -100,13 +99,55 @@ class NewTrainer(object):
             dataset.batch(batch_size)
         return dataset
 
-    def _define_loss(self) -> SparseCategoricalCrossentropy:
+    @staticmethod
+    def _define_loss_function() -> SparseCategoricalCrossentropy:
         return SparseCategoricalCrossentropy(from_logits=True)
 
-    def _define_optimiser(self) -> Optimizer:
+    @staticmethod
+    def _define_optimiser() -> Optimizer:
         return Adadelta(learning_rate=1.0)
 
+    def _define_train_and_test_loss_objects_and_accuracies(self):
+        self.train_loss = Mean(name='train_loss')
+        self.train_accuracy = SparseCategoricalAccuracy(name='train_accuracy')
+        self.test_loss = Mean(name='test_loss')
+        self.test_accuracy = SparseCategoricalAccuracy(name='test_accuracy')
 
+    def _reset_loss_objects_and_accuracies(self):
+        if self.train_loss is not None and self.train_accuracy is not None:
+            self.train_loss.reset_states()
+            self.train_accuracy.reset_states()
+        if self.test_loss is not None and self.test_accuracy is not None:
+            self.test_loss.reset_states()
+            self.test_accuracy.reset_states()
+
+    @tf.function
+    def _train_step(self, features, labels, model, loss_function, optimiser):
+        with tf.GradientTape() as tape:
+            predictions = model(features, training=True)
+            loss = loss_function(labels, predictions)
+
+        gradients = tape.gradient(loss, model.trainable_variables)
+        optimiser.apply_gradients(zip(gradients, model.trainable_variables))
+
+        self.train_loss(loss)
+        self.train_accuracy(labels, predictions)
+
+    @tf.function
+    def _test_model_and_return_f1(self, features, labels, model, loss_function) -> float:
+        predictions = model(features, training=False)
+        loss = loss_function(labels, predictions)
+
+        self.test_loss(loss)
+        self.test_accuracy(labels, predictions)
+
+        return f1_score(np.argmax(labels, axis=1),
+                        predictions,
+                        labels=np.array(range(1, 19)),
+                        average="macro")
+
+
+"""
 class Trainer():
 
     def __init__(self, epochs, batch_size=1):
@@ -241,3 +282,4 @@ class Trainer():
             saved_checkpoint_path = self.saver.save(self.session, self.checkpoint_directory + "/model-{:.3g}-f1".format(self.best_f1))
             print("Saved model checkpoint to {}".format(saved_checkpoint_path))
         return loss, accuracy, f1
+"""
